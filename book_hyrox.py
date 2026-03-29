@@ -1,6 +1,6 @@
 """
 HYROX Auto-Booking Script
-Books HYROX Performance (18:30-19:45, Monday) via the Yolawo guest form.
+Books HYROX Performance (18:30-19:45, Monday) for two people via the Yolawo guest form.
 Runs headlessly in CI; pass --show to watch locally.
 """
 
@@ -11,10 +11,10 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-FIRST_NAME = "Eric"
-LAST_NAME  = "Baack"
-EMAIL      = "eric.baack@outlook.com"
-PHONE      = "017684808571"
+PARTICIPANTS = [
+    {"first": "Eric",   "last": "Baack", "email": "eric.baack@outlook.com",   "phone": "017684808571"},
+    {"first": "Yasmin", "last": "Sahin", "email": "yasminsahin@outlook.de",   "phone": "01579686024"},
+]
 
 WIDGET_ID = "687a0408baa821731836a2c3"
 
@@ -22,6 +22,8 @@ WIDGET_ID = "687a0408baa821731836a2c3"
 # Anchor: ISO week 13 of 2026 → "691b070a81863aa9fbd22e83"
 _BASE_BOOKABLE_ID = "691b070a81863aa9fbd22e83"
 _BASE_YEAR, _BASE_WEEK = 2026, 13
+
+SKIP_FILE = "skip.txt"
 
 
 def get_next_monday() -> date:
@@ -37,11 +39,49 @@ def bookable_id_for(target: date) -> str:
     return format(new_id_int, "024x")
 
 
-SKIP_FILE = "skip.txt"
+def register_one(page, join_url: str, person: dict, index: int) -> None:
+    print(f"\n--- Booking {person['first']} {person['last']} ---")
+    page.goto(join_url, wait_until="networkidle")
+    page.wait_for_selector("input", timeout=30000)
+
+    page.locator("#mat-input-0").fill(person["first"])
+    page.wait_for_timeout(500)
+    page.locator("#mat-input-1").fill(person["last"])
+    page.wait_for_timeout(500)
+    page.locator("#mat-input-2").fill(person["email"])
+    page.wait_for_timeout(500)
+    page.locator("#mat-input-3").fill(person["phone"])
+    page.wait_for_timeout(500)
+    print("Fields filled.")
+
+    for cb in page.locator("mat-checkbox").all():
+        if not cb.locator("input").is_checked():
+            cb.click()
+            page.wait_for_timeout(300)
+    print("Checkboxes checked.")
+
+    page.get_by_role("button", name="Jetzt anmelden").click()
+    print("Clicked 'Jetzt anmelden'.")
+
+    try:
+        page.wait_for_selector(
+            ":is("
+            ":has-text('erfolgreich'),"
+            ":has-text('Bestätigung'),"
+            ":has-text('confirmed'),"
+            ":has-text('Danke')"
+            ")",
+            timeout=15000,
+        )
+        print(f"SUCCESS: {person['first']} {person['last']} booked!")
+    except PlaywrightTimeout:
+        screenshot = f"booking_result_{index}.png"
+        print(f"WARNING: No confirmation detected. Saving {screenshot}")
+        page.screenshot(path=screenshot)
+        sys.exit(1)
 
 
 def book(headless: bool = True) -> None:
-    # Check skip flag
     with open(SKIP_FILE, "r") as f:
         if f.read().strip().upper() == "SKIP":
             print("SKIP detected — not booking this week.")
@@ -54,56 +94,15 @@ def book(headless: bool = True) -> None:
     join_url = f"https://widgets.yolawo.de/w/{WIDGET_ID}/bookables/{bookable}/join"
     iso = monday.isocalendar()
     print(f"Booking HYROX Performance 18:30 — {monday} (W{iso[1]}/{iso[0]})")
-    print(f"Bookable ID: {bookable}")
     print(f"Form URL: {join_url}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
         page = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
-
-        # 1. Open the registration form
-        page.goto(join_url, wait_until="networkidle")
-        page.wait_for_selector("input", timeout=30000)
-        print("Form loaded.")
-
-        # 2. Fill in personal details
-        page.locator("#mat-input-0").fill(FIRST_NAME)
-        page.wait_for_timeout(500)
-        page.locator("#mat-input-1").fill(LAST_NAME)
-        page.wait_for_timeout(500)
-        page.locator("#mat-input-2").fill(EMAIL)
-        page.wait_for_timeout(500)
-        page.locator("#mat-input-3").fill(PHONE)
-        page.wait_for_timeout(500)
-        print("Fields filled.")
-
-        # 3. Check all checkboxes (click the visible label, not the hidden input)
-        for cb in page.locator("mat-checkbox").all():
-            if not cb.locator("input").is_checked():
-                cb.click()
-                page.wait_for_timeout(300)
-        print("Checkboxes checked.")
-
-        # 4. Submit
-        page.get_by_role("button", name="Jetzt anmelden").click()
-        print("Clicked 'Jetzt anmelden'.")
-
-        # 5. Verify confirmation
         try:
-            page.wait_for_selector(
-                ":is("
-                ":has-text('erfolgreich'),"
-                ":has-text('Bestätigung'),"
-                ":has-text('confirmed'),"
-                ":has-text('Danke')"
-                ")",
-                timeout=15000,
-            )
-            print("SUCCESS: Booking confirmed!")
-        except PlaywrightTimeout:
-            print("WARNING: Could not detect confirmation text. Saving screenshot.")
-            page.screenshot(path="booking_result.png")
-            sys.exit(1)
+            for i, person in enumerate(PARTICIPANTS):
+                register_one(page, join_url, person, i)
+                page.wait_for_timeout(2000)  # small pause between registrations
         finally:
             browser.close()
 
