@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:yolawo.nolt.io)",
+      "WebSearch",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36\" \"https://widgets.yolawo.de/w/687a0408baa821731836a2c3?year=2026&week=13\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36\" https://widgets.yolawo.de/main-5WD7KWB7.js)"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:widgets.yolawo.de)",
+      "WebFetch(domain:support.yolawo.de)",
+      "WebFetch(domain:yolawo.nolt.io)"
+    ]
+  }
+}
