@@ -17,6 +17,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Capture timestamp
+        id: ts
+        run: echo "now=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_OUTPUT"
+
+      - name: Send trigger notification
+        run: |
+          curl -s -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "from": "HYROX Bot <onboarding@resend.dev>",
+              "to": ["eric.baack@outlook.de", "yasminsahin@outlook.de"],
+              "subject": "HYROX Bot triggered — ${{ github.run_id }}",
+              "text": "The HYROX auto-booking script has been triggered.\n\nTimestamp (UTC): ${{ steps.ts.outputs.now }}\nTriggered by:    ${{ github.event_name }}\nWorkflow:        ${{ github.workflow }}\nBranch:          ${{ github.ref_name }}\nRun URL:         https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nParticipants being booked:\n  - Eric Baack (eric.baack@outlook.com)\n  - Yasmin Sahin (yasminsahin@outlook.de)\n\nThe script will attempt to book HYROX Performance 18:30 for next Monday."
+            }'
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
