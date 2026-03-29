@@ -39,7 +39,7 @@ def bookable_id_for(target: date) -> str:
     return format(new_id_int, "024x")
 
 
-def register_one(page, join_url: str, person: dict, index: int) -> None:
+def register_one(page, join_url: str, person: dict, index: int, dry_run: bool = False) -> None:
     print(f"\n--- Booking {person['first']} {person['last']} ---")
     page.goto(join_url, wait_until="networkidle")
     page.wait_for_selector("input", timeout=30000)
@@ -59,6 +59,11 @@ def register_one(page, join_url: str, person: dict, index: int) -> None:
             cb.click()
             page.wait_for_timeout(300)
     print("Checkboxes checked.")
+
+    if dry_run:
+        print("DRY RUN — form filled but not submitted.")
+        input("Press Enter to continue to next person…")
+        return
 
     page.get_by_role("button", name="Jetzt anmelden").click()
     print("Clicked 'Jetzt anmelden'.")
@@ -81,7 +86,7 @@ def register_one(page, join_url: str, person: dict, index: int) -> None:
         sys.exit(1)
 
 
-def book(headless: bool = True) -> None:
+def book(headless: bool = True, dry_run: bool = False) -> None:
     with open(SKIP_FILE, "r") as f:
         if f.read().strip().upper() == "SKIP":
             print("SKIP detected — not booking this week.")
@@ -101,7 +106,7 @@ def book(headless: bool = True) -> None:
         page = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
         try:
             for i, person in enumerate(PARTICIPANTS):
-                register_one(page, join_url, person, i)
+                register_one(page, join_url, person, i, dry_run=dry_run)
                 page.wait_for_timeout(2000)  # small pause between registrations
         finally:
             browser.close()
@@ -109,4 +114,5 @@ def book(headless: bool = True) -> None:
 
 if __name__ == "__main__":
     headless = "--show" not in sys.argv
-    book(headless=headless)
+    dry_run = "--dry-run" in sys.argv
+    book(headless=headless, dry_run=dry_run)
