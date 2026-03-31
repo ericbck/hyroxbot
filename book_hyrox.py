@@ -42,7 +42,15 @@ def bookable_id_for(target: date) -> str:
 def register_one(page, join_url: str, person: dict, index: int, dry_run: bool = False) -> None:
     print(f"\n--- Booking {person['first']} {person['last']} ---")
     page.goto(join_url, wait_until="networkidle")
-    page.wait_for_selector("input", timeout=30000)
+    try:
+        page.wait_for_selector("input", timeout=30000)
+    except PlaywrightTimeout:
+        screenshot = f"booking_result_{index}_no_form.png"
+        page.screenshot(path=screenshot)
+        print(f"ERROR: No input form found on page. Screenshot saved: {screenshot}")
+        print(f"Page title: {page.title()}")
+        print(f"Page URL:   {page.url}")
+        raise
 
     page.locator("#mat-input-0").fill(person["first"])
     page.wait_for_timeout(500)

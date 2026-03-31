@@ -23,15 +23,23 @@ jobs:
 
       - name: Send trigger notification
         run: |
-          curl -s -X POST https://api.resend.com/emails \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.resend.com/emails \
             -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{
               "from": "HYROX Bot <onboarding@resend.dev>",
-              "to": ["eric.baack@outlook.de", "yasminsahin@outlook.de"],
+              "to": ["eric.baack@outlook.de"],
               "subject": "HYROX Bot triggered — ${{ github.run_id }}",
               "text": "The HYROX auto-booking script has been triggered.\n\nTimestamp (UTC): ${{ steps.ts.outputs.now }}\nTriggered by:    ${{ github.event_name }}\nWorkflow:        ${{ github.workflow }}\nBranch:          ${{ github.ref_name }}\nRun URL:         https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nParticipants being booked:\n  - Eric Baack (eric.baack@outlook.com)\n  - Yasmin Sahin (yasminsahin@outlook.de)\n\nThe script will attempt to book HYROX Performance 18:30 for next Monday."
-            }'
+            }')
+          HTTP_BODY=$(echo "$RESPONSE" | head -n -1)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          echo "Resend HTTP status: $HTTP_CODE"
+          echo "Resend response:    $HTTP_BODY"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "ERROR: Resend API returned status $HTTP_CODE"
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -60,5 +68,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: booking-screenshot
-          path: booking_result.png
+          path: booking_result*.png
           if-no-files-found: ignore
